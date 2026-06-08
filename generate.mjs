@@ -16,10 +16,13 @@ const GENERATED_BASE_ENTRIES = [
 ];
 
 const GENERATED_METADATA_ENTRIES = new Set([
+  ".gitattributes",
+  ".gitignore",
   "LICENSE",
   "LICENSE.md",
   "README.md",
   "package.json",
+  "scripts",
   "tsconfig.json",
 ]);
 
@@ -117,7 +120,7 @@ export async function main(root = process.cwd()) {
   }
 
   const generatedEntries = readdirSync(generatedDir).filter(
-    (entry) => !GENERATED_METADATA_ENTRIES.has(entry),
+    (entry) => !isGeneratedMetadataEntry(entry),
   );
 
   for (const entry of new Set([
@@ -137,7 +140,7 @@ export async function main(root = process.cwd()) {
     cpSync(source, target, { force: true, recursive: true });
   }
 
-  patchGeneratedFiles(packageRoot, packageJson.name);
+  patchGeneratedFiles(packageRoot, packageJson.name, generatedEntries);
 
   rmSync(generatedDir, { force: true, recursive: true });
 
@@ -256,15 +259,49 @@ export function sanitizeFileName(name) {
   return createHash("sha256").update(name).digest("hex").slice(0, 16);
 }
 
-function patchGeneratedFiles(root, packageName) {
+export function isGeneratedMetadataEntry(entry) {
+  return GENERATED_METADATA_ENTRIES.has(entry);
+}
+
+export function patchGeneratedProviderTokens(source, packageName) {
+  return source
+    .replaceAll("pulumi:providers:crds", `pulumi:providers:${packageName}`)
+    .replaceAll("pulumi:providers:kubernetes", `pulumi:providers:${packageName}`);
+}
+
+export function stripTrailingWhitespace(source) {
+  return source.replace(/[ \t]+$/gm, "");
+}
+
+function patchGeneratedFiles(root, packageName, generatedEntries) {
+  for (const entry of generatedEntries) {
+    stripGeneratedTypeScript(join(root, entry));
+  }
+
   const indexPath = join(root, "index.ts");
   if (existsSync(indexPath)) {
-    const indexSource = readFileSync(indexPath, "utf8").replaceAll(
-      "pulumi:providers:crds",
-      `pulumi:providers:${packageName}`,
+    writeFileSync(
+      indexPath,
+      patchGeneratedProviderTokens(readFileSync(indexPath, "utf8"), packageName),
     );
-    writeFileSync(indexPath, indexSource);
   }
+}
+
+function stripGeneratedTypeScript(path) {
+  const stats = statSync(path);
+
+  if (stats.isDirectory()) {
+    for (const entry of readdirSync(path)) {
+      stripGeneratedTypeScript(join(path, entry));
+    }
+    return;
+  }
+
+  if (!path.endsWith(".ts")) {
+    return;
+  }
+
+  writeFileSync(path, stripTrailingWhitespace(readFileSync(path, "utf8")));
 }
 
 function isDirectRun() {

@@ -4,9 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import {
   extractMetadataName,
+  isGeneratedMetadataEntry,
   isCustomResourceDefinition,
+  patchGeneratedProviderTokens,
   sanitizeFileName,
   splitYamlDocuments,
+  stripTrailingWhitespace,
 } from "../generate.mjs";
 import { collectCustomResourceDefinitionNames } from "../kubernetes-smoke.mjs";
 
@@ -66,6 +69,34 @@ test("normalizes CRD names into deterministic filenames", () => {
   assert.equal(sanitizeFileName("Widgets.Example.COM"), "widgets.example.com");
   assert.equal(sanitizeFileName("Widget API/Preview"), "widget-api-preview");
   assert.match(sanitizeFileName("***"), /^[a-f0-9]{16}$/);
+});
+
+test("keeps generated metadata out of package source copies", () => {
+  assert.equal(isGeneratedMetadataEntry(".gitattributes"), true);
+  assert.equal(isGeneratedMetadataEntry(".gitignore"), true);
+  assert.equal(isGeneratedMetadataEntry("package.json"), true);
+  assert.equal(isGeneratedMetadataEntry("scripts"), true);
+  assert.equal(isGeneratedMetadataEntry("index.ts"), false);
+});
+
+test("patches provider tokens emitted by supported crd2pulumi versions", () => {
+  assert.equal(
+    patchGeneratedProviderTokens(
+      [
+        'type !== "pulumi:providers:crds"',
+        'type !== "pulumi:providers:kubernetes"',
+      ].join("\n"),
+      "karpenter-pulumi",
+    ),
+    [
+      'type !== "pulumi:providers:karpenter-pulumi"',
+      'type !== "pulumi:providers:karpenter-pulumi"',
+    ].join("\n"),
+  );
+});
+
+test("strips trailing whitespace from generated TypeScript", () => {
+  assert.equal(stripTrailingWhitespace("const x = 1;  \n\t\n"), "const x = 1;\n\n");
 });
 
 test("collects CRD names for Kubernetes establishment waits", () => {
