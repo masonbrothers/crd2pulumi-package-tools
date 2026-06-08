@@ -19,6 +19,7 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
       - run: node --check generate.mjs
+      - run: node --check kubernetes-smoke.mjs
       - run: npm test
       - run: npm pack --dry-run
       - run: npm publish --provenance --access public

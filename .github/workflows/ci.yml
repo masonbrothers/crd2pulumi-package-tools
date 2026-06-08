@@ -15,5 +15,6 @@ jobs:
         with:
           node-version: 22
       - run: node --check generate.mjs
+      - run: node --check kubernetes-smoke.mjs
       - run: npm test
       - run: npm pack --dry-run

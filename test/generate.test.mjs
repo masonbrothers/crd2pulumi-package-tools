@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   extractMetadataName,
@@ -7,6 +8,7 @@ import {
   sanitizeFileName,
   splitYamlDocuments,
 } from "../generate.mjs";
+import { collectCustomResourceDefinitionNames } from "../kubernetes-smoke.mjs";
 
 test("splits multi-document YAML while ignoring empty separators", () => {
   assert.deepEqual(
@@ -64,4 +66,13 @@ test("normalizes CRD names into deterministic filenames", () => {
   assert.equal(sanitizeFileName("Widgets.Example.COM"), "widgets.example.com");
   assert.equal(sanitizeFileName("Widget API/Preview"), "widget-api-preview");
   assert.match(sanitizeFileName("***"), /^[a-f0-9]{16}$/);
+});
+
+test("collects CRD names for Kubernetes establishment waits", () => {
+  const dir = fileURLToPath(new URL("fixtures/crds/", import.meta.url));
+
+  assert.deepEqual(
+    collectCustomResourceDefinitionNames(dir),
+    ["widgets.example.com"],
+  );
 });
