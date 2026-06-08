@@ -1,0 +1,20 @@
+{
+  "name": "crd2pulumi-package-tools",
+  "version": "0.1.0",
+  "description": "Shared CRD download and crd2pulumi generation tooling for Pulumi CRD packages.",
+  "license": "MIT",
+  "private": false,
+  "type": "module",
+  "packageManager": "pnpm@10.7.1",
+  "bin": {
+    "generate-crd2pulumi-package": "./generate.mjs"
+  },
+  "files": [
+    "generate.mjs",
+    "LICENSE.md",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.16.0"
+  }
+}
