@@ -9,6 +9,9 @@
   "bin": {
     "generate-crd2pulumi-package": "./generate.mjs"
   },
+  "scripts": {
+    "test": "node --test"
+  },
   "files": [
     "generate.mjs",
     "LICENSE.md",
