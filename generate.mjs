@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, cpSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { get as httpGet } from "node:http";
 import { get as httpsGet } from "node:https";
 import { basename, dirname, join, resolve } from "node:path";
@@ -61,7 +61,7 @@ export async function main(root = process.cwd()) {
 
   for (const source of config.sources) {
     const sourceName = source.name ?? basename(source.url ?? source.path ?? "source");
-    const yaml = await readSource(source, packageRoot);
+    const yaml = await readSource(source, packageRoot, config.downloadTimeoutMs);
     const crdDocs = splitYamlDocuments(yaml).filter(isCustomResourceDefinition);
 
     if (crdDocs.length === 0) {
@@ -149,24 +149,30 @@ export async function main(root = process.cwd()) {
   );
 }
 
-async function readSource(source, root) {
+async function readSource(source, root, defaultTimeoutMs) {
+  let contents;
+
   if (source.url) {
-    return download(source.url);
+    contents = await download(
+      source.url,
+      source.timeoutMs ?? defaultTimeoutMs ?? 30000,
+    );
+  } else if (source.path) {
+    contents = readFileSync(resolve(root, source.path), "utf8");
+  } else {
+    throw new Error("CRD source must include either url or path");
   }
 
-  if (source.path) {
-    return readFileSync(resolve(root, source.path), "utf8");
-  }
-
-  throw new Error("CRD source must include either url or path");
+  verifySourceSha256(source.name ?? source.url ?? source.path, contents, source.sha256);
+  return contents;
 }
 
-async function download(url, redirectsRemaining = 5) {
+async function download(url, timeoutMs = 30000, redirectsRemaining = 5) {
   return new Promise((resolveDownload, reject) => {
     const parsedUrl = new URL(url);
     const get = parsedUrl.protocol === "http:" ? httpGet : httpsGet;
 
-    get(parsedUrl, (response) => {
+    const request = get(parsedUrl, (response) => {
       const statusCode = response.statusCode ?? 0;
       const location = response.headers.location;
 
@@ -177,7 +183,10 @@ async function download(url, redirectsRemaining = 5) {
           return;
         }
         const redirectedUrl = new URL(location, parsedUrl).toString();
-        download(redirectedUrl, redirectsRemaining - 1).then(resolveDownload, reject);
+        download(redirectedUrl, timeoutMs, redirectsRemaining - 1).then(
+          resolveDownload,
+          reject,
+        );
         return;
       }
 
@@ -194,6 +203,12 @@ async function download(url, redirectsRemaining = 5) {
       });
       response.on("end", () => resolveDownload(data));
     }).on("error", reject);
+
+    request.setTimeout(timeoutMs, () => {
+      request.destroy(
+        new Error(`Timed out downloading ${url} after ${timeoutMs}ms`),
+      );
+    });
   });
 }
 
@@ -257,6 +272,23 @@ export function sanitizeFileName(name) {
   }
 
   return createHash("sha256").update(name).digest("hex").slice(0, 16);
+}
+
+export function sha256Hex(source) {
+  return createHash("sha256").update(source, "utf8").digest("hex");
+}
+
+export function verifySourceSha256(sourceName, contents, expectedSha256) {
+  if (!expectedSha256) {
+    return;
+  }
+
+  const actualSha256 = sha256Hex(contents);
+  if (actualSha256 !== expectedSha256.toLowerCase()) {
+    throw new Error(
+      `SHA-256 mismatch for ${sourceName}: expected ${expectedSha256}, got ${actualSha256}`,
+    );
+  }
 }
 
 export function isGeneratedMetadataEntry(entry) {

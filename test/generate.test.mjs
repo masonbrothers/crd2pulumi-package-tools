@@ -8,8 +8,10 @@ import {
   isCustomResourceDefinition,
   patchGeneratedProviderTokens,
   sanitizeFileName,
+  sha256Hex,
   splitYamlDocuments,
   stripTrailingWhitespace,
+  verifySourceSha256,
 } from "../generate.mjs";
 import { collectCustomResourceDefinitionNames } from "../kubernetes-smoke.mjs";
 
@@ -97,6 +99,17 @@ test("patches provider tokens emitted by supported crd2pulumi versions", () => {
 
 test("strips trailing whitespace from generated TypeScript", () => {
   assert.equal(stripTrailingWhitespace("const x = 1;  \n\t\n"), "const x = 1;\n\n");
+});
+
+test("verifies configured source sha256 checksums", () => {
+  const contents = "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\n";
+  const checksum = sha256Hex(contents);
+
+  assert.doesNotThrow(() => verifySourceSha256("source", contents, checksum));
+  assert.throws(
+    () => verifySourceSha256("source", contents, "0".repeat(64)),
+    /SHA-256 mismatch for source/,
+  );
 });
 
 test("collects CRD names for Kubernetes establishment waits", () => {

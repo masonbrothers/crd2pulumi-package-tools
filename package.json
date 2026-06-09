@@ -18,7 +18,9 @@
   "type": "module",
   "packageManager": "pnpm@10.7.1",
   "bin": {
-    "generate-crd2pulumi-package": "./generate.mjs"
+    "generate-crd2pulumi-package": "./generate.mjs",
+    "smoke-crd2pulumi-kubernetes": "./kubernetes-smoke.mjs",
+    "smoke-crd2pulumi-package": "./package-smoke.mjs"
   },
   "scripts": {
     "test": "node --test"
