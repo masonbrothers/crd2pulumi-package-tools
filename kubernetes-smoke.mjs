@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -74,5 +74,8 @@ function runKubectl(args) {
 }
 
 function isDirectRun() {
-  return process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+  return (
+    process.argv[1] &&
+    realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))
+  );
 }

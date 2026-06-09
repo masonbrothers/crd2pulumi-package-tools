@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { get as httpGet } from "node:http";
 import { get as httpsGet } from "node:https";
 import { basename, dirname, join, resolve } from "node:path";
@@ -337,7 +337,10 @@ function stripGeneratedTypeScript(path) {
 }
 
 function isDirectRun() {
-  return process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+  return (
+    process.argv[1] &&
+    realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))
+  );
 }
 
 function relativeSummary(root, path) {
